@@ -19,11 +19,11 @@ listOfSubsetsAsLists s = let {n = S.size s;es=S.toList s} in Prelude.map (\i->( 
 
 cost = [[0,  45, 65, 75,  100,  130,  100,  100 ],[85, 0,  19,  30, 27, 140,  120,  120 ],[130,  50,   0,  11,  35, 160,  130,  130],[120,  45, 45, 0,   24, 140,  120,  120 ],[130,  65, 50,   60,    0,  160,  130,  130 ],[85, 160,  150,  160,  190,  0,   26,  90 ],[60,   140,  130,  140,  160,  26,  0,   10 ],[55, 130,  120,  130,  150,  35,  80,   0]]
 
-thirst = [0,70,54,21,4,16,32,18]
+demand = [0,70,54,21,4,16,32,18]
 
-thirstForRoute s = Prelude.sum $ Prelude.map (thirst !!) s
+demandForRoute s = Prelude.sum $ Prelude.map (demand !!) s
 
-entrancesNeeded s = ceiling $ ((thirstForRoute s)::Double) Prelude./ (capacity::Double)
+entrancesNeeded s = ceiling $ ((demandForRoute s)::Double) Prelude./ (capacity::Double)
 
 capacity = 200
 
