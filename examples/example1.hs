@@ -27,7 +27,7 @@ entrancesNeeded s = ceiling $ ((demandForRoute s)::Double) Prelude./ (capacity::
 
 capacity = 200
 
-zeta s = filter (\(a,b)-> (a `S.notMember` s) && (b `S.member` s)) $ setToConnections as 
+delta s = filter (\(a,b)-> (a `S.notMember` s) && (b `S.member` s)) $ setToConnections as 
 
 ws = S.fromList [0]
 
@@ -66,7 +66,7 @@ lp = execLPM $ do
   mapM_ (\(i,j)->setVarKind (xij i j) BinVar) $ setToConnections as 
   mapM_ (\w->setVarKind ("k"++(show w)) IntVar) $ S.toList ws 
 
-  mapM_ (\(e,lincomb)->geqTo (linCombination lincomb) e ) $ map (\l->(entrancesNeeded l, (\s->map (\(a,b)->(1,xij a b) ) $ zeta s) $ S.fromList l))  $ filter (/=[]) $ listOfSubsetsAsLists vPLus 
+  mapM_ (\(e,lincomb)->geqTo (linCombination lincomb) e ) $ map (\l->(entrancesNeeded l, (\s->map (\(a,b)->(1,xij a b) ) $ delta s) $ S.fromList l))  $ filter (/=[]) $ listOfSubsetsAsLists vPLus 
 
 main = do
     (ret,ab) <- glpSolveVars mipDefaults lp
