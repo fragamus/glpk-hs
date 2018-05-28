@@ -27,14 +27,13 @@ entrancesNeeded s = ceiling $ ((demandForRoute s)::Double) Prelude./ (capacity::
 
 capacity = 200
 
-entrancesLC s = map (\(a,b)->(1,xij a b) )           $   filter (\(a,b)-> (a `S.notMember` s) && (b `S.member` s))      $ setToConnections as 
-
+zeta s = filter (\(a,b)-> (a `S.notMember` s) && (b `S.member` s)) $ setToConnections as 
 
 ws = S.fromList [0]
 
-cs = S.fromList [1,2,3,4,5,6,7]
+vPLus = S.fromList [1,2,3,4,5,6,7]
 
-as = S.union ws cs
+as = S.union ws vPLus
 
 dissolve xss = let n = length xss in ((zip3 (map (`Prelude.div` n) [0..]) (map (`Prelude.mod` n) [0..])) . join) xss
 
@@ -58,8 +57,8 @@ lp = execLPM $ do
   setDirection Min
   setObjective waterDistributionCost
 
-  mapM_ (\c->equalTo (linCombination $ sumEntries c) 1) $ S.toList cs 
-  mapM_ (\c->equalTo (linCombination $ sumExits c) 1) $ S.toList cs 
+  mapM_ (\c->equalTo (linCombination $ sumEntries c) 1) $ S.toList vPLus 
+  mapM_ (\c->equalTo (linCombination $ sumExits c) 1) $ S.toList vPLus 
   mapM_ (\w->equalTo (linCombination $ (-1,"k"++(show w)):(sumEntries w)) 0) $ S.toList ws 
   mapM_ (\w->equalTo (linCombination $ (-1,"k"++(show w)):(sumExits w)) 0) $ S.toList ws 
   mapM_ (\(i,j)->varGeq (xij i j) 0) $ setToConnections as 
@@ -67,7 +66,7 @@ lp = execLPM $ do
   mapM_ (\(i,j)->setVarKind (xij i j) BinVar) $ setToConnections as 
   mapM_ (\w->setVarKind ("k"++(show w)) IntVar) $ S.toList ws 
 
-  mapM_ (\(e,lincomb)->geqTo (linCombination lincomb) e ) $ map (\l->(entrancesNeeded l, entrancesLC $ S.fromList l))  $ filter (/=[]) $ listOfSubsetsAsLists cs 
+  mapM_ (\(e,lincomb)->geqTo (linCombination lincomb) e ) $ map (\l->(entrancesNeeded l, (\s->map (\(a,b)->(1,xij a b) ) $ zeta s) $ S.fromList l))  $ filter (/=[]) $ listOfSubsetsAsLists vPLus 
 
 main = do
     (ret,ab) <- glpSolveVars mipDefaults lp
@@ -77,4 +76,3 @@ main = do
             print a
             print b
     print "hi" 
-    --print $ map (\l->(entrancesNeeded l, entrancesLC $ S.fromList l))  $ filter (/=[]) $ listOfSubsetsAsLists cs 
