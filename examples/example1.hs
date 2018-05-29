@@ -1,5 +1,4 @@
 import Prelude hiding (Num(..))
-
 import Algebra.Classes
 import Control.Monad.LPMonad
 import Data.LinearProgram.Common
@@ -7,7 +6,6 @@ import Data.LinearProgram
 import Data.LinearProgram.GLPK
 import qualified Data.Map as M
 import Data.LinearProgram.LinExpr
-
 import Control.Monad
 import qualified Data.Set as S
 import qualified Data.Map as M
@@ -15,7 +13,9 @@ import qualified Data.List as L
 import qualified Data.Foldable as F
 import qualified Data.Bits as B
 
-listOfSubsetsAsLists s = let {n = S.size s;es=S.toList s} in Prelude.map (\i->( (Prelude.map (es!!)) . (Prelude.filter (B.testBit i))) [0..n-1]) [(0::Int)..((2 Prelude.^ n)-1)]
+listOfSubsetsAsLists s = let {n = S.size s;elements=S.toList s} in Prelude.map (\i->( (Prelude.map (elements!!)) . (Prelude.filter (B.testBit i))) [0..n-1]) [(0::Int)..((2 Prelude.^ n)-1)]
+
+listOfSubsets s = Prelude.map S.fromList $ listOfSubsetsAsLists s
 
 cost = [[0,  45, 65, 75,  100,  130,  100,  100 ],[85, 0,  19,  30, 27, 140,  120,  120 ],[130,  50,   0,  11,  35, 160,  130,  130],[120,  45, 45, 0,   24, 140,  120,  120 ],[130,  65, 50,   60,    0,  160,  130,  130 ],[85, 160,  150,  160,  190,  0,   26,  90 ],[60,   140,  130,  140,  160,  26,  0,   10 ],[55, 130,  120,  130,  150,  35,  80,   0]]
 
@@ -24,16 +24,27 @@ demand = [0,70,54,21,4,16,32,18]
 demandForRoute s = Prelude.sum $ Prelude.map (demand !!) s
 
 entrancesNeeded s = ceiling $ ((demandForRoute s)::Double) Prelude./ (capacity::Double)
+littleK s = ceiling $ ((demandForRoute $ S.toList s)::Double) Prelude./ (capacity::Double)
+
 
 capacity = 200
 
-delta s = filter (\(a,b)-> (a `S.notMember` s) && (b `S.member` s)) $ setToConnections as 
+depots = S.fromList [0]
 
-ws = S.fromList [0]
+vPlus = S.fromList [1,2,3,4,5,6,7]
 
-vPLus = S.fromList [1,2,3,4,5,6,7]
+vs = S.union depots vPlus
 
-as = S.union ws vPLus
+es = S.fromList $ setToConnections vs
+
+delta s = S.filter (\(a,b)-> (a `S.member` s) /= (b `S.member` s)) $ es 
+
+xe (i,j) = "x"++(show i)++"c"++(show j) 
+
+ki i = "k"++(show i)
+
+linearCombination = linCombination . S.toList
+
 
 dissolve xss = let n = length xss in ((zip3 (map (`Prelude.div` n) [0..]) (map (`Prelude.mod` n) [0..])) . join) xss
 
@@ -41,9 +52,9 @@ nonDiagonals = filter (\(i,j,x)->i/=j)
 
 totalCost = ( (map (\(i,j,v)->(v,xij i j))) . nonDiagonals . dissolve) cost
 
-sumEntries j = let is = S.toList $ as `S.difference` S.singleton j in map (\i->(1,xij i j)) is
+sumEntries j = let is = S.toList $ vs `S.difference` S.singleton j in map (\i->(1,xij i j)) is
    
-sumExits i = let js = S.toList $ as `S.difference` S.singleton i in map (\j->(1,xij i j)) js   
+sumExits i = let js = S.toList $ vs `S.difference` S.singleton i in map (\j->(1,xij i j)) js   
 
 xij i j = "x"++(show i)++"c"++(show j) 
 
@@ -57,16 +68,20 @@ lp = execLPM $ do
   setDirection Min
   setObjective waterDistributionCost
 
-  mapM_ (\c->equalTo (linCombination $ sumEntries c) 1) $ S.toList vPLus 
-  mapM_ (\c->equalTo (linCombination $ sumExits c) 1) $ S.toList vPLus 
-  mapM_ (\w->equalTo (linCombination $ (-1,"k"++(show w)):(sumEntries w)) 0) $ S.toList ws 
-  mapM_ (\w->equalTo (linCombination $ (-1,"k"++(show w)):(sumExits w)) 0) $ S.toList ws 
-  mapM_ (\(i,j)->varGeq (xij i j) 0) $ setToConnections as 
-  mapM_ (\w->varGeq ("k"++(show w)) 0) $ S.toList ws 
-  mapM_ (\(i,j)->setVarKind (xij i j) BinVar) $ setToConnections as 
-  mapM_ (\w->setVarKind ("k"++(show w)) IntVar) $ S.toList ws 
+  F.mapM_ (\i-> equalTo (linearCombination (S.map (\e->(1,xe e)) (delta (S.singleton i)))) 2) vPlus
 
-  mapM_ (\(e,lincomb)->geqTo (linCombination lincomb) e ) $ map (\l->(entrancesNeeded l, (\s->map (\(a,b)->(1,xij a b) ) $ delta s) $ S.fromList l))  $ filter (/=[]) $ listOfSubsetsAsLists vPLus 
+  F.mapM_ (\i-> equalTo (linearCombination ((-2,ki i) `S.insert` S.map (\e->(1,xe e)) (delta (S.singleton i)))) 0) depots
+
+  F.mapM_ (\s-> geqTo (linearCombination (S.map (\e->(1,xe e)) (delta s))) (2* littleK s)) 
+        (L.filter (not . S.null) $ listOfSubsets vPlus)
+
+
+  F.mapM_ (\e->leqTo (linearCombination (S.singleton (1,xe e))) 1) (es S.\\ (delta depots))
+  F.mapM_ (\e->geqTo (linearCombination (S.singleton (1,xe e))) 0) es
+
+  F.mapM_ (\e->setVarKind (xe e) ContVar) es 
+
+  F.mapM_ (\i->setVarKind (ki i) IntVar) depots 
 
 main = do
     (ret,ab) <- glpSolveVars mipDefaults lp
