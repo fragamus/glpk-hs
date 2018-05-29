@@ -41,7 +41,7 @@ delta s = S.filter (\(a,b)-> (a `S.member` s) /= (b `S.member` s)) $ es
 
 xe (i,j) = "x"++(show i)++"c"++(show j) 
 
-ki i = "k"++(show i)
+ki i = "K"++(show i)
 
 linearCombination = linCombination . S.toList
 
@@ -51,10 +51,6 @@ dissolve xss = let n = length xss in ((zip3 (map (`Prelude.div` n) [0..]) (map (
 nonDiagonals = filter (\(i,j,x)->i/=j)
 
 totalCost = ( (map (\(i,j,v)->(v,xij i j))) . nonDiagonals . dissolve) cost
-
-sumEntries j = let is = S.toList $ vs `S.difference` S.singleton j in map (\i->(1,xij i j)) is
-   
-sumExits i = let js = S.toList $ vs `S.difference` S.singleton i in map (\j->(1,xij i j)) js   
 
 xij i j = "x"++(show i)++"c"++(show j) 
 
@@ -75,13 +71,13 @@ lp = execLPM $ do
   F.mapM_ (\s-> geqTo (linearCombination (S.map (\e->(1,xe e)) (delta s))) (2* littleK s)) 
         (L.filter (not . S.null) $ listOfSubsets vPlus)
 
-
   F.mapM_ (\e->leqTo (linearCombination (S.singleton (1,xe e))) 1) (es S.\\ (delta depots))
+
   F.mapM_ (\e->geqTo (linearCombination (S.singleton (1,xe e))) 0) es
 
   F.mapM_ (\e->setVarKind (xe e) ContVar) es 
 
-  F.mapM_ (\i->setVarKind (ki i) IntVar) depots 
+  F.mapM_ (\i->setVarKind (ki i) ContVar) depots 
 
 main = do
     (ret,ab) <- glpSolveVars mipDefaults lp
