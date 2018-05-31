@@ -6,12 +6,27 @@ import Data.LinearProgram
 import Data.LinearProgram.GLPK
 import qualified Data.Map as M
 import Data.LinearProgram.LinExpr
-import Control.Monad
-import qualified Data.Set as S
 import qualified Data.Map as M
 import qualified Data.List as L
 import qualified Data.Foldable as F
 import qualified Data.Bits as B
+
+
+import Control.Monad
+import qualified Data.Set as S
+capacity = 200
+depots = S.fromList [0]
+vPlus = S.fromList [1,2,3,4,5,6,7]
+demand = [0,70,54,21,4,16,32,18]
+vs = S.union depots vPlus
+es = S.fromList $ setToConnections vs
+demandForRoute s = Prelude.sum $ Prelude.map (demand !!) s
+qRoutesWithoutEndpoints as = do { a <- S.toList vPlus; guard (length as < 1 || a /= head as); guard (length as < 2 || a /= (as!!1)); guard (demandForRoute (a:as) <= capacity); [a:as] ++ qRoutesWithoutEndpoints (a:as)}
+depotPairs = [(a,b)|a<-(S.toList depots),b<-(S.toList depots)]
+addEndpoints route = map (\(a,b)-> (a:route)++[b]) depotPairs 
+
+
+
 
 listOfSubsetsAsLists s = let {n = S.size s;elements=S.toList s} in Prelude.map (\i->( (Prelude.map (elements!!)) . (Prelude.filter (B.testBit i))) [0..n-1]) [(0::Int)..((2 Prelude.^ n)-1)]
 
@@ -19,23 +34,10 @@ listOfSubsets s = Prelude.map S.fromList $ listOfSubsetsAsLists s
 
 cost = [[0,  45, 65, 75,  100,  130,  100,  100 ],[85, 0,  19,  30, 27, 140,  120,  120 ],[130,  50,   0,  11,  35, 160,  130,  130],[120,  45, 45, 0,   24, 140,  120,  120 ],[130,  65, 50,   60,    0,  160,  130,  130 ],[85, 160,  150,  160,  190,  0,   26,  90 ],[60,   140,  130,  140,  160,  26,  0,   10 ],[55, 130,  120,  130,  150,  35,  80,   0]]
 
-demand = [0,70,54,21,4,16,32,18]
-
-demandForRoute s = Prelude.sum $ Prelude.map (demand !!) s
-
 entrancesNeeded s = ceiling $ ((demandForRoute s)::Double) Prelude./ (capacity::Double)
 littleK s = ceiling $ ((demandForRoute $ S.toList s)::Double) Prelude./ (capacity::Double)
 
 
-capacity = 200
-
-depots = S.fromList [0]
-
-vPlus = S.fromList [1,2,3,4,5,6,7]
-
-vs = S.union depots vPlus
-
-es = S.fromList $ setToConnections vs
 
 delta s = S.filter (\(a,b)-> (a `S.member` s) /= (b `S.member` s)) $ es 
 
