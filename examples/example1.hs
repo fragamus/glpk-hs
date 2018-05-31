@@ -12,6 +12,7 @@ import qualified Data.Foldable as F
 import qualified Data.Bits as B
 
 
+
 import Control.Monad
 import qualified Data.Set as S
 capacity = 200
@@ -24,7 +25,7 @@ demandForRoute s = Prelude.sum $ Prelude.map (demand !!) s
 qRoutesWithoutEndpoints as = do { a <- S.toList vPlus; guard (length as < 1 || a /= head as); guard (length as < 2 || a /= (as!!1)); guard (demandForRoute (a:as) <= capacity); [a:as] ++ qRoutesWithoutEndpoints (a:as)}
 depotPairs = [(a,b)|a<-(S.toList depots),b<-(S.toList depots)]
 addEndpoints route = map (\(a,b)-> (a:route)++[b]) depotPairs 
-
+qRoutes = (qRoutesWithoutEndpoints []) >>= addEndpoints
 
 
 
@@ -66,6 +67,10 @@ lp = execLPM $ do
   setDirection Min
   setObjective waterDistributionCost
 
+
+
+
+
   F.mapM_ (\i-> equalTo (linearCombination (S.map (\e->(1,xe e)) (delta (S.singleton i)))) 2) vPlus
 
   F.mapM_ (\i-> equalTo (linearCombination ((-2,ki i) `S.insert` S.map (\e->(1,xe e)) (delta (S.singleton i)))) 0) depots
@@ -81,6 +86,12 @@ lp = execLPM $ do
 
   F.mapM_ (\i->setVarKind (ki i) ContVar) depots 
 
+ 
+
+
+
+
+
 main = do
     (ret,ab) <- glpSolveVars mipDefaults lp
     case ab of 
@@ -89,3 +100,5 @@ main = do
             print a
             print b
     print "hi" 
+    print $ zip [0..] qRoutes
+
